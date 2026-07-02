@@ -19,7 +19,7 @@ async function bootstrap() {
 
   // Wait for WhatsApp Web to load
   let attempts = 0;
-  const maxAttempts = 50; // ~10 seconds (50 * 200ms)
+  const maxAttempts = 150; // ~30 seconds (150 * 200ms)
 
   while (attempts < maxAttempts) {
     const mainPane = document.querySelector('#main');
@@ -32,7 +32,7 @@ async function bootstrap() {
     await new Promise((resolve) => setTimeout(resolve, 200));
   }
 
-  logger.warn('WhatsApp Web did not load in time');
+  logger.warn('WhatsApp Web did not load in time after 30 seconds');
 }
 
 function startObservation() {
@@ -57,26 +57,10 @@ function startObservation() {
     }
   };
 
-  // Start observing
-  const unobserve = adapter.observe(onNewVoiceMessage);
-
-  // Handle SPA navigation (WhatsApp Web switches chats)
-  let currentMainPane = document.querySelector('#main');
-  const navigationObserver = new MutationObserver(() => {
-    const newMainPane = document.querySelector('#main');
-    if (newMainPane && newMainPane !== currentMainPane) {
-      logger.log('Chat navigation detected, restarting observation');
-      unobserve();
-      bubbleController.onStateChange('', () => {}); // Reset
-      currentMainPane = newMainPane;
-      startObservation();
-    }
-  });
-
-  navigationObserver.observe(document.body, {
-    childList: true,
-    subtree: false,
-  });
+  // Start observing. The adapter anchors on a stable root (#app) and rescans
+  // the whole document, so it survives chat switches on its own — no need for
+  // a separate navigation observer.
+  adapter.observe(onNewVoiceMessage);
 
   logger.log('Voice message observation started');
 }

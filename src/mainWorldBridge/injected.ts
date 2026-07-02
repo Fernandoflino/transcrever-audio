@@ -4,35 +4,14 @@
 
 console.log('[transcrever-audio-bridge] MAIN world injected script loaded');
 
-interface BridgeRequestMessage {
-  source: 'transcrever-audio-content';
-  type: 'GET_DECRYPTED_AUDIO';
-  requestId: string;
-  messageId: string;
-}
+let cachedStore = null;
 
-interface BridgeResponseMessage {
-  source: 'transcrever-audio-bridge';
-  type: 'GET_DECRYPTED_AUDIO_RESULT';
-  requestId: string;
-  ok: boolean;
-  blobUrl?: string;
-  errorReason?: string;
-}
-
-interface StoreHandles {
-  Msg: { get: (id: string) => unknown };
-  DownloadManager: { downloadAndDecrypt: (msg: unknown) => Promise<Blob> };
-}
-
-let cachedStore: StoreHandles | null = null;
-
-function findStoreModules(): StoreHandles | null {
+function findStoreModules() {
   if (cachedStore) return cachedStore;
 
   try {
     // Try to locate window.require or webpack cache
-    const wnd = window as Record<string, unknown>;
+    const wnd = window;
 
     // Strategy 1: Look for webpackChunk array (common in webpack bundles)
     const webpackChunks = Object.values(wnd).find(
@@ -54,8 +33,8 @@ function findStoreModules(): StoreHandles | null {
     }
 
     // Strategy 2: Look for a global require function
-    if (typeof (wnd.webpackRequire as unknown) === 'function') {
-      const require = wnd.webpackRequire as (id: number) => unknown;
+    if (typeof wnd.webpackRequire === 'function') {
+      const require = wnd.webpackRequire;
       const store = findStoreViaRequire(require);
       if (store) {
         cachedStore = store;
@@ -83,7 +62,7 @@ function findStoreModules(): StoreHandles | null {
   }
 }
 
-function findStoreViaRequire(require: (id: number) => unknown): StoreHandles | null {
+function findStoreViaRequire(require) {
   try {
     // Try common module patterns
     for (let i = 0; i < 10000; i++) {
@@ -103,7 +82,7 @@ function findStoreViaRequire(require: (id: number) => unknown): StoreHandles | n
   }
 }
 
-function hasStoreShape(obj: unknown): boolean {
+function hasStoreShape(obj) {
   if (!isObject(obj)) return false;
   // Look for properties that suggest this is the Store object
   const keys = Object.keys(obj);
@@ -115,7 +94,7 @@ function hasStoreShape(obj: unknown): boolean {
   );
 }
 
-function extractStore(obj: unknown): StoreHandles | null {
+function extractStore(obj) {
   if (!isObject(obj)) return null;
 
   const msgModule = obj.Msg;
@@ -132,30 +111,30 @@ function extractStore(obj: unknown): StoreHandles | null {
   }
 
   const downloadFn =
-    (downloadModule as Record<string, unknown>).downloadAndDecrypt ||
-    (downloadModule as Record<string, unknown>).download ||
-    (downloadModule as Record<string, unknown>).decryptAndDownload;
+    downloadModule.downloadAndDecrypt ||
+    downloadModule.download ||
+    downloadModule.decryptAndDownload;
 
   if (typeof downloadFn !== 'function') {
     return null;
   }
 
   return {
-    Msg: msgModule as StoreHandles['Msg'],
+    Msg: msgModule,
     DownloadManager: {
-      downloadAndDecrypt: downloadFn as StoreHandles['DownloadManager']['downloadAndDecrypt'],
-    },
+      downloadAndDecrypt: downloadFn
+    }
   };
 }
 
-function isObject(value: unknown): value is Record<string, unknown> {
+function isObject(value) {
   return typeof value === 'object' && value !== null;
 }
 
 window.addEventListener('message', (event) => {
   if (event.source !== window) return;
 
-  const message = event.data as BridgeRequestMessage;
+  const message = event.data;
   if (message.source !== 'transcrever-audio-content') return;
 
   if (message.type === 'GET_DECRYPTED_AUDIO') {
@@ -163,7 +142,7 @@ window.addEventListener('message', (event) => {
   }
 });
 
-async function handleGetDecryptedAudio(request: BridgeRequestMessage) {
+async function handleGetDecryptedAudio(request) {
   try {
     const store = findStoreModules();
     if (!store) {
@@ -173,7 +152,7 @@ async function handleGetDecryptedAudio(request: BridgeRequestMessage) {
     const messageId = request.messageId;
 
     // Get the message object from Store
-    let msg: unknown;
+    let msg;
     try {
       msg = store.Msg.get(messageId);
     } catch (error) {
@@ -185,7 +164,7 @@ async function handleGetDecryptedAudio(request: BridgeRequestMessage) {
     }
 
     // Download and decrypt the media
-    let blob: Blob;
+    let blob;
     try {
       blob = await store.DownloadManager.downloadAndDecrypt(msg);
     } catch (error) {
@@ -195,7 +174,7 @@ async function handleGetDecryptedAudio(request: BridgeRequestMessage) {
     // Create a blob URL and send it back
     const blobUrl = URL.createObjectURL(blob);
 
-    const response: BridgeResponseMessage = {
+    const response = {
       source: 'transcrever-audio-bridge',
       type: 'GET_DECRYPTED_AUDIO_RESULT',
       requestId: request.requestId,
@@ -205,7 +184,7 @@ async function handleGetDecryptedAudio(request: BridgeRequestMessage) {
 
     window.postMessage(response, '*');
   } catch (error) {
-    const response: BridgeResponseMessage = {
+    const response = {
       source: 'transcrever-audio-bridge',
       type: 'GET_DECRYPTED_AUDIO_RESULT',
       requestId: request.requestId,

@@ -14,8 +14,25 @@ export const SELECTORS = {
   // Audio player specifically
   audioPlayer: 'audio',
 
-  // Waveform canvas indicator (present in voice messages)
+  // Waveform canvas indicator (present in some voice messages)
   waveformCanvas: 'canvas',
+
+  // Voice-message-specific markers (resilient to WhatsApp updates).
+  // Voice notes ("ptt") expose a play/pause button and a scrubber slider
+  // even before the <audio> element is lazily created.
+  voiceIndicators: [
+    '[data-icon="audio-play"]',
+    '[data-icon="audio-pause"]',
+    '[data-icon="ptt"]',
+    'button[aria-label*="voice message" i]',
+    'button[aria-label*="mensagem de voz" i]',
+    'button[aria-label*="Reproduzir" i]',
+    'button[aria-label*="Play" i]',
+    'span[data-icon="audio-play"]',
+    'input[type="range"]',
+    'audio',
+    'canvas',
+  ].join(', '),
 };
 
 export function findChatPane(): HTMLElement | null {
@@ -43,9 +60,8 @@ export function getMessageId(element: HTMLElement): string | null {
 }
 
 export function isVoiceBubble(element: HTMLElement): boolean {
-  // Check for presence of audio player or waveform canvas
-  // (these are strong indicators of a voice message)
-  const hasAudio = element.querySelector(SELECTORS.audioPlayer) !== null;
-  const hasWaveform = element.querySelector(SELECTORS.waveformCanvas) !== null;
-  return hasAudio || hasWaveform;
+  // Voice notes ("ptt") expose a play/pause button and a scrubber slider
+  // even before the <audio> element is lazily created after first playback.
+  // We check a broad set of resilient markers instead of relying on <audio>.
+  return element.querySelector(SELECTORS.voiceIndicators) !== null;
 }

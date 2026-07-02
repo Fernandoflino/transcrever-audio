@@ -13,27 +13,20 @@ export const TranscriptBubble: React.FC<TranscriptBubbleProps> = ({
 }) => {
   if (isLoading) {
     return (
-      <div className="px-3 py-2 rounded bg-gray-100 text-gray-600 text-sm italic">
-        Processando transcrição...
+      <div className="ta-card ta-loading">
+        <span className="ta-spinner" />
+        Transcrevendo áudio...
       </div>
     );
   }
 
   if (error) {
-    return (
-      <div className="px-3 py-2 rounded bg-red-50 border border-red-200 text-red-700 text-sm">
-        ❌ Erro: {error}
-      </div>
-    );
+    return <div className="ta-card ta-error">{error}</div>;
   }
 
   if (!text) {
     return null;
   }
 
-  return (
-    <div className="px-3 py-2 rounded bg-blue-50 border-l-2 border-blue-400 text-gray-800 text-sm whitespace-pre-wrap break-words">
-      {text}
-    </div>
-  );
+  return <div className="ta-card">{text}</div>;
 };
